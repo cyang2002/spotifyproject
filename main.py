@@ -1,7 +1,9 @@
-import json
-from dotenv import load_dotenv
 import os
 import base64
+import csv
+import json
+import requests
+from dotenv import load_dotenv
 from requests import post, get
 
 load_dotenv()
@@ -24,7 +26,6 @@ def get_token():
     result = post(url, headers=headers, data=data)
     json_result = json.loads(result.content)
     
-    # Return only the access token as a string
     return json_result["access_token"]
 
 def get_auth_header(token):
@@ -61,20 +62,74 @@ def get_artist_albums(token, artist_id):
     json_result = json.loads(result.content)["items"]
     return json_result
 
+def flatten_track_data(track):
+    """Flattens the track data into a single dictionary suitable for CSV."""
+    flattened_data = {
+        "album_name": track['album']['name'],
+        "album_release_date": track['album']['release_date'],
+        "album_total_tracks": track['album']['total_tracks'],
+        "track_name": track['name'],
+        "track_id": track['id'],
+        "track_popularity": track['popularity'],
+        "track_duration_ms": track['duration_ms'],
+        "track_number": track['track_number'],
+        "is_explicit": track['explicit'],
+        "is_playable": track['is_playable'],
+        "track_preview_url": track['preview_url'],
+        "track_uri": track['uri'],
+    }
+
+    artist_names = [artist['name'] for artist in track['artists']]
+    flattened_data['artists'] = ', '.join(artist_names)
+    
+    return flattened_data
+
+def createCSV():
+    token = get_token()
+    url = f"https://api.spotify.com/v1/artists/6nxWCVXbOlEVRexSbLsTer/top-tracks?country=US"
+    headers = get_auth_header(token)
+
+    csv_filename = f"flume.csv"
+    with open(csv_filename, "w", newline="") as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=[
+            "album_name", "album_release_date", "album_total_tracks",
+            "track_name", "track_id", "track_popularity", "track_duration_ms",
+            "track_number", "is_explicit", "is_playable", "track_preview_url",
+            "track_uri", "artists"
+        ])
+        csv_writer.writeheader()
+
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            json_result = response.json()["tracks"]
+            
+            for count, track in enumerate(json_result):
+                flattened_data = flatten_track_data(track)
+                csv_writer.writerow(flattened_data)
+
+            print(f"Data saved to '{csv_filename}' successfully.")
+        else:
+            print('Error:', response.status_code)
+
+
+createCSV()
+
 token = get_token()
 
-result = search_for_artist(token, "Taylor Swift")
+result = search_for_artist(token, "Flume")
 artist_id = result["id"]
-
 
 songs = get_artist_songs(token,artist_id)
 
 albums = get_artist_albums(token,artist_id)
 
-# for i, song in enumerate(songs):
-#     print(f"{i + 1}. {song['name']}")
+for i, song in enumerate(songs):
+    print(f"{i + 1}. {song['name']}")
 
-for i, album in enumerate(albums):
-    print(f"{i + 1}. {album['name']}")
+# for i, album in enumerate(albums):
+#     print(f"{i + 1}. {album['name']}")
+
+print(artist_id)
 
 
