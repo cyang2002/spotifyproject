@@ -2,20 +2,27 @@ import os
 import base64
 import csv
 import json
-import requests
+from requests import post, get, Session
+import time
 from dotenv import load_dotenv
-from requests import Session
 from pprint import pprint as pp
+from flask import Flask, session, redirect, url_for, request
+from spotipy import Spotify
+from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import FlaskSessionCacheHandler
+from flask.views import MethodView
 
 
 load_dotenv()
 
-client_id = os.getenv("CLIENT_ID")
-client_secret = os.getenv("CLIENT_SECRET")
-
-class Spotify:
+class spotifyproject:
     def __init__(self):
-        auth_string = client_id + ":" + client_secret
+        self.client_id = os.getenv("CLIENT_ID")
+        self.client_secret = os.getenv("CLIENT_SECRET")
+        self.redirect_uri = 'http://localhost:5000/callback'
+        self.scope = 'user-top-read playlist-read-private'
+
+        auth_string = self.client_id + ":" + self.client_secret
         auth_base64 = str(base64.b64encode(auth_string.encode("utf-8")), "utf-8")
 
         self.url = "https://accounts.spotify.com/api/token"
@@ -23,12 +30,21 @@ class Spotify:
             "Authorization": "Basic " + auth_base64,
             "Content-Type": "application/x-www-form-urlencoded"
         }
+
         self.session = Session()
         self.session.headers.update(self.headers)
 
+        self.sp_oauth = SpotifyOAuth(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            redirect_uri=self.redirect_uri,
+            scope=self.scope,
+            cache_handler=FlaskSessionCacheHandler(session)
+        )
+
     def get_token(self):
         data = {"grant_type": "client_credentials"}
-        result = self.session.post(self.url, data=data)
+        result = self.session.post(self.url, data=data, headers=self.headers)
         json_result = json.loads(result.content)
         
         return json_result["access_token"]
@@ -52,6 +68,22 @@ class Spotify:
             return None
         
         return json_result[0]
+
+    def get_user_topsongs(self, token, time_range, limit):
+        url = f"https://api.spotify.com/v1/me/top/tracks"
+        headers = self.get_auth_header(token)
+        params = {
+        "time_range": time_range, 
+        "limit": limit 
+        }
+
+        result = self.session.get(url, headers=headers, params=params)
+
+        if result.status_code == 200:
+            return result.json()["items"]
+        else:
+            print('Error:', result.status_code)
+        return None
 
     def get_artist_topsongs(self, token, artist_id):
         url = f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country=US"
@@ -118,18 +150,26 @@ class Spotify:
                 print('Error:', response.status_code)
 
 
-def main():
-    spotify = Spotify()
-    
+if __name__ == "__main__":
+    spotify = spotifyproject()
+
     token = spotify.get_token()
     result = spotify.search_for_artist(token, "Taylor Swift")
+
+    user_top_tracks = spotify.get_user_topsongs(token, time_range='short_term', limit=30)
+
+    if user_top_tracks:
+        print("User's Top Tracks:")
+        for i, track in enumerate(user_top_tracks):
+            print(f"{i + 1}. {track['name']} by {', '.join([artist['name'] for artist in track['artists']])}")
 
     if result:
         artist_id = result["id"]
     
         songs = spotify.get_artist_topsongs(token, artist_id)
 
-        pp(songs)
+
+        # pp(songs)
 
 
         # print("\nTop Songs:")
@@ -138,7 +178,3 @@ def main():
     
         # spotify.createCSV()
         # print(spotify.session)
-
-
-if __name__ == "__main__":
-    main()
