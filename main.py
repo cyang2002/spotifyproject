@@ -154,7 +154,7 @@ if __name__ == "__main__":
     spotify = spotifyproject()
 
     token = spotify.get_token()
-    result = spotify.search_for_artist(token, "Taylor Swift")
+    result = spotify.search_for_artist(token, "Flume")
 
     user_top_tracks = spotify.get_user_topsongs(token, time_range='short_term', limit=30)
 
@@ -170,6 +170,8 @@ if __name__ == "__main__":
 
 
         # pp(songs)
+
+        pp(spotify.search_for_artist(token, artist_id))
 
 
         # print("\nTop Songs:")
