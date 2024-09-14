@@ -5,3 +5,4 @@ requirements.txt
 
 flume.csv
 user_top_tracks.csv
+.spotifycache
