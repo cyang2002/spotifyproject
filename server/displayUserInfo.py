@@ -9,7 +9,10 @@ from spotipy.cache_handler import FlaskSessionCacheHandler
 
 load_dotenv()
 
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5173/"}})
 
 app.config['SESSION_COOKIE_NAME'] = 'Spotify Cookie'
 app.secret_key = '*********'
